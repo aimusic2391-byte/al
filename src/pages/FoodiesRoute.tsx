@@ -84,12 +84,6 @@ export function FoodiesRoute() {
     }
   }, [currentLocation, deliveryLocation, hasAutoFilled, currentLocationQuery]);
 
-  useEffect(() => {
-    const emptyStops = stops.filter(stop => stop.foodIds.length === 0 && !stop.address);
-    if (emptyStops.length > 0 && !canAddStop) {
-      setStops(prev => prev.filter(stop => stop.foodIds.length > 0 || stop.address));
-    }
-  }, [canAddStop, stops]);
 
   useEffect(() => {
     if (location.state) {
