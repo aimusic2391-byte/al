@@ -22,13 +22,32 @@ export function FoodiesRoute() {
   const currentLocationInputRef = useRef<HTMLInputElement>(null);
   const stopInputRefs = useRef<{ [key: string]: HTMLInputElement }>({});
 
-  const [stops, setStops] = useState<Stop[]>([]);
-  const [deliveryLocation, setDeliveryLocation] = useState('');
-  const [currentLocationQuery, setCurrentLocationQuery] = useState('');
+  // Load saved route data from localStorage if available
+  const loadRouteData = () => {
+    const stored = localStorage.getItem('FOODIES_ROUTE_DATA');
+    if (stored) {
+      try {
+        const data = JSON.parse(stored);
+        return {
+          stops: data.stops || [],
+          deliveryLocation: data.deliveryLocation || ''
+        };
+      } catch (error) {
+        console.error('Error loading route data:', error);
+      }
+    }
+    return { stops: [], deliveryLocation: '' };
+  };
+
+  const initialData = loadRouteData();
+
+  const [stops, setStops] = useState<Stop[]>(initialData.stops);
+  const [deliveryLocation, setDeliveryLocation] = useState(initialData.deliveryLocation);
+  const [currentLocationQuery, setCurrentLocationQuery] = useState(initialData.deliveryLocation);
   const [stopAddressQuery, setStopAddressQuery] = useState<{ [key: string]: string }>({});
   const [activeLocationInput, setActiveLocationInput] = useState('current-location');
   const [showRecentAddresses, setShowRecentAddresses] = useState(true);
-  const [hasAutoFilled, setHasAutoFilled] = useState(false);
+  const [hasAutoFilled, setHasAutoFilled] = useState(!!initialData.deliveryLocation);
   const [showCurrentLocationModal, setShowCurrentLocationModal] = useState(false);
   const [showStopModal, setShowStopModal] = useState<string | null>(null);
 
@@ -45,13 +64,15 @@ export function FoodiesRoute() {
   }, [cart, assignedToStopsIds]);
 
   const maxAssignable = cart.length - 1;
-  const canAddStop = unselectedFoods.length > 1;
+  const MAX_STOPS = 3;
+  const canAddStop = unselectedFoods.length > 1 && stops.length < MAX_STOPS;
 
   console.log('🛒 Cart:', cart.length);
   console.log('📍 Stops:', stops.length);
   console.log('📊 Assigned to stops:', assignedToStopsIds.length);
   console.log('📊 Unselected foods:', unselectedFoods.length);
   console.log('📊 Can add stop:', canAddStop);
+  console.log('📊 Max stops reached:', stops.length >= MAX_STOPS);
 
   useEffect(() => {
     if (currentLocation && !deliveryLocation && !hasAutoFilled) {
@@ -212,6 +233,29 @@ export function FoodiesRoute() {
   };
 
   const handleGoToDelivery = () => {
+    // Save route data to localStorage before navigation
+    const routeData = {
+      deliveryLocation,
+      stops: stops.map(stop => ({
+        id: stop.id,
+        address: stop.address,
+        description: stop.description,
+        foodIds: stop.foodIds
+      })),
+      cart: cart.map(item => ({
+        id: item.id,
+        storeId: item.storeId,
+        storeName: item.storeName,
+        name: item.name,
+        image: item.image,
+        price: item.price
+      })),
+      timestamp: Date.now()
+    };
+
+    localStorage.setItem('FOODIES_ROUTE_DATA', JSON.stringify(routeData));
+    console.log('📦 Saved route data to localStorage:', routeData);
+
     navigate('/food-delivery');
   };
 

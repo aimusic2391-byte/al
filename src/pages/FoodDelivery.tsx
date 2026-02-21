@@ -24,18 +24,31 @@ const SNAP_THRESHOLD = 65;
 
 export function FoodDelivery() {
   const navigate = useNavigate();
-  const {
-    getCurrentLocationFoods,
-    cartItems,
-    deliveryLocation,
-    stops
-  } = useFoodOrderSession();
+
+  // Load data from localStorage (from FoodiesRoute)
+  const [routeData, setRouteData] = useState<any>(() => {
+    const stored = localStorage.getItem('FOODIES_ROUTE_DATA');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (error) {
+        console.error('Error loading route data:', error);
+        return null;
+      }
+    }
+    return null;
+  });
 
   const [selectedFilter, setSelectedFilter] = useState<FilterTab>('standard');
   const [selectedModeId, setSelectedModeId] = useState<'motorbike' | 'car' | 'bicycle'>('car');
   const [panelHeight, setPanelHeight] = useState(PANEL_MIN_HEIGHT);
   const [profileToggle, setProfileToggle] = useState<'personal' | 'business'>('personal');
   const panelRef = useRef<HTMLDivElement>(null);
+
+  // Use route data from localStorage
+  const cartItems = routeData?.cart || [];
+  const deliveryLocation = routeData?.deliveryLocation || '';
+  const stops = routeData?.stops || [];
 
   const deliveryModes: DeliveryMode[] = [
     {
@@ -64,9 +77,22 @@ export function FoodDelivery() {
     }
   ];
 
-  const currentLocationFoods = getCurrentLocationFoods();
+  // Calculate food items assigned to current location (not assigned to stops)
+  const getStopFoodIds = () => {
+    const ids: string[] = [];
+    stops.forEach((stop: any) => {
+      if (stop.foodIds) {
+        ids.push(...stop.foodIds);
+      }
+    });
+    return ids;
+  };
+
+  const stopFoodIds = getStopFoodIds();
+  const currentLocationFoods = cartItems.filter((item: any) => !stopFoodIds.includes(item.id));
+
   const totalItemCount = currentLocationFoods.length;
-  const foodSubtotal = currentLocationFoods.reduce((sum, item) => sum + item.price, 0);
+  const foodSubtotal = currentLocationFoods.reduce((sum: number, item: any) => sum + item.price, 0);
   const selectedMode = deliveryModes.find(m => m.id === selectedModeId);
   const deliveryFee = selectedMode?.deliveryFee || 0;
   const total = foodSubtotal + deliveryFee;
@@ -74,10 +100,11 @@ export function FoodDelivery() {
   const isExpanded = panelHeight > SNAP_THRESHOLD;
 
   useEffect(() => {
-    if (cartItems.length === 0) {
+    if (!routeData || cartItems.length === 0) {
+      console.log('No route data or empty cart, redirecting to shop');
       navigate('/shop');
     }
-  }, [cartItems.length, navigate]);
+  }, [routeData, cartItems.length, navigate]);
 
   useEffect(() => {
     if (selectedFilter === 'standard') {
@@ -138,6 +165,13 @@ export function FoodDelivery() {
   };
 
   const handleAddStop = () => {
+    // Update localStorage before navigating back
+    const updatedData = {
+      ...routeData,
+      timestamp: Date.now()
+    };
+    localStorage.setItem('FOODIES_ROUTE_DATA', JSON.stringify(updatedData));
+
     navigate('/foodies-route', {
       state: {
         autoAddStop: true
